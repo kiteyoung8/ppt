@@ -1,13 +1,470 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>my-quote-app</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>海報設計神器 (旗艦版)</title>
+  
+  <!-- 1. 載入 Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- 2. 載入 React 與 ReactDOM (Production 版本) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- 3. 載入 Babel (讓瀏覽器看得懂 JSX 語法) -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- 全域 CSS 設定 -->
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&family=M+PLUS+Rounded+1c:wght@400;500;700&family=Noto+Sans+TC:wght@300;400;500;700&family=Noto+Serif+TC:wght@400;700&family=Zhi+Mang+Xing&display=swap');
+    
+    body { font-family: 'Noto Sans TC', sans-serif; margin: 0; padding: 0; }
+    p, h2, span, label, input, textarea, select { font-family: 'Noto Sans TC', sans-serif; }
+    
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
+  </style>
+</head>
+<body>
+  <!-- React 應用程式的掛載點 -->
+  <div id="root"></div>
+
+  <!-- 注意這裡的 type 是 text/babel，這是給 Babel 翻譯用的 -->
+  <script type="text/babel">
+    // 從全域 React 物件中解構出我們需要的 Hooks
+    const { useReducer, useRef, useCallback, useState, useEffect } = React;
+
+    // ==========================================
+    // 1. 字典與設定
+    // ==========================================
+    const LAYOUT_OPTIONS = {
+      '1:1': { label: '正方形 (1:1)', className: 'aspect-square w-[500px]' },
+      '3:5': { label: '直式海報 (3:5)', className: 'aspect-[3/5] w-[450px]' },
+      '5:3': { label: '橫式海報 (5:3)', className: 'aspect-[5/3] w-[750px]' },
+      'A4-portrait': { label: 'A4 直式 (列印級)', className: 'aspect-[210/297] w-[600px]' },
+      'A4-landscape': { label: 'A4 橫式 (列印級)', className: 'aspect-[297/210] w-[850px]' },
+      'A3-portrait': { label: 'A3 直式 (高解析)', className: 'aspect-[210/297] w-[800px]' },
+      'A3-landscape': { label: 'A3 橫式 (高解析)', className: 'aspect-[297/210] w-[1130px]' }
+    };
+
+    const THEME_OPTIONS = {
+      shinkai: { name: '唯美 (新海誠)', bg: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&q=80&w=2000', overlay: 'bg-black/10' },
+      cyberpunk: { name: '霓虹 (電幻)', bg: 'https://images.unsplash.com/photo-1555861496-faa2e7174fa4?auto=format&fit=crop&q=80&w=2000', overlay: 'bg-purple-900/40' },
+      minimal: { name: '純粹 (極簡)', bg: 'https://images.unsplash.com/photo-1495195129352-aeb325a55b65?auto=format&fit=crop&q=80&w=2000', overlay: 'bg-white/20' },
+      nature: { name: '生機 (自然)', bg: 'https://images.unsplash.com/photo-1511497584788-876760111969?auto=format&fit=crop&q=80&w=2000', overlay: 'bg-green-900/30' },
+      midnight: { name: '午夜 (深邃)', bg: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=2000', overlay: 'bg-blue-900/50' },
+      solitude: { name: '孤寂 (黑白)', bg: 'https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?auto=format&fit=crop&q=80&w=2000', overlay: 'bg-black/60' },
+      passion: { name: '熱情 (花火)', bg: 'https://images.unsplash.com/photo-1533613220915-609f661a6fe1?auto=format&fit=crop&q=80&w=2000', overlay: 'bg-red-900/40' },
+      custom: { name: '✨ 自訂圖片', bg: '', overlay: 'bg-black/30' }
+    };
+
+    const RECOMMENDATION_LOGIC = [
+      { words: ['光', '陽', '夢', '愛', '暖', '希望', '美'], recs: ['shinkai', 'minimal', 'passion'] },
+      { words: ['夜', '月', '星', '深', '冷', '暗', '孤', '寂'], recs: ['midnight', 'cyberpunk', 'solitude'] },
+      { words: ['山', '森', '草', '木', '生', '自然', '綠', '海'], recs: ['nature', 'minimal', 'shinkai'] },
+    ];
+
+    const TEXT_SIZE_OPTIONS = {
+      small: { label: '小 (Small)', title: 'text-3xl', number: 'text-xl', subtitle: 'text-xl', content: 'text-base' },
+      normal: { label: '標準 (Normal)', title: 'text-4xl', number: 'text-2xl', subtitle: 'text-2xl', content: 'text-lg' },
+      large: { label: '大 (Large)', title: 'text-5xl', number: 'text-3xl', subtitle: 'text-3xl', content: 'text-xl' },
+      xlarge: { label: '特大 (Extra Large)', title: 'text-6xl', number: 'text-4xl', subtitle: 'text-4xl', content: 'text-2xl' }
+    };
+
+    const FONT_OPTIONS = {
+      sans: { label: '標準黑體 (Noto Sans)', value: "'Noto Sans TC', sans-serif" },
+      serif: { label: '優雅明體 (Noto Serif)', value: "'Noto Serif TC', serif" },
+      rounded: { label: '可愛圓體 (M PLUS Rounded)', value: "'M PLUS Rounded 1c', sans-serif" },
+      handwriting: { label: '日系手寫 (Klee One)', value: "'Klee One', cursive" },
+      brush: { label: '豪放毛筆 (Zhi Mang Xing)', value: "'Zhi Mang Xing', cursive" }
+    };
+
+    // ==========================================
+    // 2. 狀態管理 (Reducer)
+    // ==========================================
+    const initialState = {
+      draft: {
+        title: "心之勇士",
+        number: "227",
+        subtitle: "展現給孩子的風景",
+        content: "注視孩子們的眼睛 —— \n那是充滿純真和好奇的心靈之窗。\n當那窗口打開向著我們的時候，\n我們是否應該負責向那窗口展現什麼？",
+        layout: "1:1",
+        theme: "shinkai",
+        textSize: "normal",
+        textColor: "#ffffff",
+        fontFamily: "sans",
+        qrUrl: "https://google.com",
+        showQr: false,
+        boxAlign: 'center',
+        boxValign: 'center',
+        offsetX: 0,
+        offsetY: 0,
+        boxWidth: 100
+      },
+      preview: null, 
+    };
+
+    function generatorReducer(state, action) {
+      switch (action.type) {
+        case 'UPDATE_FIELD':
+          return { ...state, draft: { ...state.draft, [action.payload.name]: action.payload.value } };
+        case 'SET_THEME':
+          return { ...state, draft: { ...state.draft, theme: action.payload } };
+        case 'GENERATE_PREVIEW':
+          return { ...state, preview: { ...state.draft } };
+        default:
+          return state;
+      }
+    }
+
+    // ==========================================
+    // 3. 主元件
+    // ==========================================
+    function GeneratorApp() {
+      const cardRef = useRef(null);
+      const uploadedImageRef = useRef(""); 
+      
+      const [isExporting, setIsExporting] = useState(false);
+      const [exportImageUrl, setExportImageUrl] = useState(null);
+      const [qrBase64, setQrBase64] = useState(""); 
+      const [recommendedKeys, setRecommendedKeys] = useState(['shinkai', 'minimal', 'cyberpunk']);
+
+      const [state, dispatch] = useReducer(generatorReducer, initialState);
+      const { draft } = state;
+      const activePreview = state.preview || state.draft; 
+
+      useEffect(() => {
+        const fullText = `${draft.title} ${draft.subtitle} ${draft.content}`;
+        let found = false;
+        for (const group of RECOMMENDATION_LOGIC) {
+          if (group.words.some(word => fullText.includes(word))) {
+            setRecommendedKeys(group.recs);
+            found = true;
+            break;
+          }
+        }
+        if (!found) setRecommendedKeys(['shinkai', 'minimal', 'cyberpunk']);
+      }, [draft.title, draft.subtitle, draft.content]);
+
+      useEffect(() => {
+        if (!activePreview.showQr || !activePreview.qrUrl) {
+          setQrBase64("");
+          return;
+        }
+        const generateQR = async () => {
+          try {
+            const url = `https://quickchart.io/qr?text=${encodeURIComponent(activePreview.qrUrl)}&size=200&margin=1`;
+            const res = await fetch(url);
+            const blob = await res.blob();
+            const reader = new FileReader();
+            reader.onloadend = () => setQrBase64(reader.result);
+            reader.readAsDataURL(blob);
+          } catch (err) { console.error('QR Code 產生失敗:', err); }
+        };
+        const timeoutId = setTimeout(() => generateQR(), 500);
+        return () => clearTimeout(timeoutId);
+      }, [activePreview.qrUrl, activePreview.showQr]);
+
+      const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        dispatch({ 
+          type: 'UPDATE_FIELD', 
+          payload: { name, value: type === 'checkbox' ? checked : value } 
+        });
+      };
+
+      const handleGridClick = (v, h) => {
+        handleChange({ target: { name: 'boxValign', value: v }});
+        handleChange({ target: { name: 'boxAlign', value: h }});
+      };
+
+      const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) return alert('請上傳圖片檔案！');
+        if (file.size > 5 * 1024 * 1024) return alert('圖片大小請勿超過 5MB！');
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          uploadedImageRef.current = event.target.result;
+          dispatch({ type: 'SET_THEME', payload: 'custom' });
+        };
+        reader.readAsDataURL(file);
+      };
+
+      const handleGenerate = () => dispatch({ type: 'GENERATE_PREVIEW' });
+
+      const generateExportImage = useCallback(async () => {
+        if (cardRef.current === null) return;
+        try {
+          setIsExporting(true);
+          if (!window.html2canvas) {
+            await new Promise((resolve, reject) => {
+              const script = document.createElement('script');
+              script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+              script.onload = resolve;
+              script.onerror = reject;
+              document.head.appendChild(script);
+            });
+          }
+          const canvas = await window.html2canvas(cardRef.current, {
+            useCORS: true,
+            scale: 2,
+            backgroundColor: null
+          });
+          setExportImageUrl(canvas.toDataURL('image/png'));
+        } catch (err) {
+          console.error('匯出失敗:', err);
+          alert('圖片生成失敗，請稍後再試。');
+        } finally {
+          setIsExporting(false);
+        }
+      }, []);
+
+      const getActiveBgImage = () => {
+        if (activePreview.theme === 'custom' && uploadedImageRef.current) return uploadedImageRef.current;
+        return THEME_OPTIONS[activePreview.theme].bg;
+      };
+
+      const getContainerClasses = () => {
+        const vMap = { top: 'items-start', center: 'items-center', bottom: 'items-end' };
+        const hMap = { left: 'justify-start', center: 'justify-center', right: 'justify-end' };
+        return `${vMap[activePreview.boxValign]} ${hMap[activePreview.boxAlign]}`;
+      };
+
+      const textSizeOpts = TEXT_SIZE_OPTIONS[activePreview.textSize || 'normal'];
+      const activeFont = FONT_OPTIONS[activePreview.fontFamily || 'sans'].value;
+
+      return (
+        <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row text-left overflow-hidden">
+          {/* 左側：編輯器面板 */}
+          <div className="w-full md:w-[400px] bg-white border-r shadow-sm flex flex-col h-screen z-10 shrink-0">
+            <div className="p-6 border-b bg-white z-10">
+              <h2 className="text-xl font-black text-gray-900 tracking-wider">🎨 海報設計神器 (旗艦版)</h2>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar bg-gray-50/30">
+              {/* 區塊 1：版面與 AI 風格 */}
+              <section className="space-y-4">
+                <h3 className="text-xs font-bold text-indigo-600 uppercase tracking-widest border-b pb-2">1. 畫布與風格</h3>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">畫布比例</label>
+                  <select name="layout" value={draft.layout} onChange={handleChange} className="w-full p-2 border rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500">
+                    {Object.entries(LAYOUT_OPTIONS).map(([key, opt]) => (
+                      <option key={key} value={key}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    AI 推薦風格 <span className="text-xs text-gray-400 font-normal ml-1">(依據內文自動偵測)</span>
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {recommendedKeys.map(key => (
+                      <button 
+                        key={key} onClick={() => dispatch({ type: 'SET_THEME', payload: key })}
+                        className={`px-2 py-3 text-xs font-medium rounded-lg border transition-all flex flex-col items-center justify-center gap-1 ${
+                          draft.theme === key ? 'bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        {THEME_OPTIONS[key].name.split(' ')[0]}
+                      </button>
+                    ))}
+                  </div>
+                  
+                  <div className="flex items-center gap-2 pt-2">
+                    <select name="theme" value={draft.theme} onChange={handleChange} className="flex-1 p-2 text-sm border rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500">
+                      {Object.entries(THEME_OPTIONS).map(([key, opt]) => (
+                        <option key={key} value={key}>{opt.name}</option>
+                      ))}
+                    </select>
+                    <label className="cursor-pointer px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition text-sm bg-white shrink-0">
+                      <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                      自訂圖片
+                    </label>
+                  </div>
+                </div>
+              </section>
+
+              {/* 區塊 2：自由排版 (9宮格) */}
+              <section className="space-y-4">
+                <h3 className="text-xs font-bold text-indigo-600 uppercase tracking-widest border-b pb-2">2. 自由排版</h3>
+                
+                <div className="flex items-start gap-6">
+                  <div className="shrink-0 space-y-1">
+                    <label className="block text-xs text-center text-gray-500 mb-2">對齊位置</label>
+                    <div className="grid grid-cols-3 gap-1 w-24">
+                      {['top', 'center', 'bottom'].map(v => (
+                        ['left', 'center', 'right'].map(h => (
+                          <button 
+                            key={`${v}-${h}`} onClick={() => handleGridClick(v, h)}
+                            className={`h-7 rounded border transition-all ${
+                              draft.boxValign === v && draft.boxAlign === h ? 'bg-indigo-500 border-indigo-600' : 'bg-white border-gray-300 hover:border-indigo-400'
+                            }`}
+                          />
+                        ))
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex-1 space-y-4 pt-2">
+                    <div>
+                      <div className="flex justify-between text-xs text-gray-500 mb-1"><span>X軸位移</span><span>{draft.offsetX}px</span></div>
+                      <input type="range" name="offsetX" min="-400" max="400" value={draft.offsetX} onChange={handleChange} className="w-full accent-indigo-600 h-1" />
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-xs text-gray-500 mb-1"><span>Y軸位移</span><span>{draft.offsetY}px</span></div>
+                      <input type="range" name="offsetY" min="-400" max="400" value={draft.offsetY} onChange={handleChange} className="w-full accent-indigo-600 h-1" />
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-xs text-gray-500 mb-1"><span>區塊寬度</span><span>{draft.boxWidth}%</span></div>
+                      <input type="range" name="boxWidth" min="20" max="100" value={draft.boxWidth} onChange={handleChange} className="w-full accent-indigo-600 h-1" />
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* 區塊 3：文字設定 */}
+              <section className="space-y-4">
+                <h3 className="text-xs font-bold text-indigo-600 uppercase tracking-widest border-b pb-2">3. 文字與內容</h3>
+                <div className="flex gap-2">
+                  <select name="textSize" value={draft.textSize} onChange={handleChange} className="flex-1 p-2 text-sm border rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500">
+                    {Object.entries(TEXT_SIZE_OPTIONS).map(([key, opt]) => <option key={key} value={key}>{opt.label}</option>)}
+                  </select>
+                  <select name="fontFamily" value={draft.fontFamily} onChange={handleChange} className="flex-1 p-2 text-sm border rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500">
+                    {Object.entries(FONT_OPTIONS).map(([key, opt]) => <option key={key} value={key}>{opt.label}</option>)}
+                  </select>
+                  <div className="w-10 h-[38px] shrink-0 rounded-lg border bg-white p-1">
+                    <input type="color" name="textColor" value={draft.textColor} onChange={handleChange} className="h-full w-full cursor-pointer bg-transparent" />
+                  </div>
+                </div>
+
+                <input type="text" name="title" value={draft.title} onChange={handleChange} placeholder="主標題" className="w-full p-2 border rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500" />
+                <div className="flex gap-2">
+                  <input type="text" name="number" value={draft.number} onChange={handleChange} placeholder="編號" className="w-1/3 p-2 border rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500" />
+                  <input type="text" name="subtitle" value={draft.subtitle} onChange={handleChange} placeholder="副標題" className="w-2/3 p-2 border rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500" />
+                </div>
+                <textarea name="content" rows="4" value={draft.content} onChange={handleChange} placeholder="輸入內文..." className="w-full p-2 border rounded-lg bg-white resize-none outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+              </section>
+
+              {/* 區塊 4：附加功能 */}
+              <section className="space-y-4 pb-4">
+                <h3 className="text-xs font-bold text-indigo-600 uppercase tracking-widest border-b pb-2">4. 附加功能</h3>
+                <div className="p-3 border rounded-lg bg-white">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="showQr" checked={draft.showQr} onChange={handleChange} className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" />
+                    <span className="text-sm font-medium text-gray-700">🔗 啟用行動呼籲 QR Code</span>
+                  </label>
+                  {draft.showQr && (
+                    <input type="text" name="qrUrl" value={draft.qrUrl} onChange={handleChange} placeholder="輸入網址將自動產生 QR Code" className="w-full p-2 mt-3 text-sm border rounded-lg bg-gray-50 outline-none focus:ring-2 focus:ring-indigo-500" />
+                  )}
+                </div>
+              </section>
+            </div>
+
+            {/* 底部按鈕區 */}
+            <div className="p-4 border-t bg-white flex gap-3 z-10 shrink-0">
+              <button onClick={handleGenerate} className="flex-1 py-3 bg-gray-900 text-white font-bold rounded-lg hover:bg-gray-800 transition shadow-md">
+                ✨ 產生預覽
+              </button>
+              <button onClick={generateExportImage} disabled={isExporting} className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition shadow-md disabled:opacity-50">
+                {isExporting ? '處理中...' : '📸 導出圖卡'}
+              </button>
+            </div>
+          </div>
+
+          {/* 右側：預覽面板 */}
+          <div className="flex-1 bg-gray-200 p-8 flex items-center justify-center overflow-x-hidden overflow-y-auto relative">
+            <div className="transform scale-75 md:scale-100 origin-center transition-all duration-500">
+              
+              <div 
+                ref={cardRef} 
+                className={`relative flex p-12 bg-cover bg-center shadow-2xl overflow-hidden transition-all duration-700 ${LAYOUT_OPTIONS[activePreview.layout].className} ${getContainerClasses()}`}
+                style={{ backgroundImage: `url(${getActiveBgImage()})` }}
+              >
+                {/* 遮罩 */}
+                <div className={`absolute inset-0 pointer-events-none ${THEME_OPTIONS[activePreview.theme].overlay}`}></div>
+
+                {/* 卡片本體 (套用排版參數) */}
+                <div 
+                  className="relative z-10 backdrop-blur-md bg-white/20 border border-white/30 rounded-3xl p-10 shadow-2xl flex flex-col justify-between transition-all duration-300"
+                  style={{ 
+                    width: `${activePreview.boxWidth}%`,
+                    transform: `translate(${activePreview.offsetX}px, ${activePreview.offsetY}px)`
+                  }}
+                >
+                  <div>
+                    <div className="mb-6">
+                      <h1 className={`${textSizeOpts.title} font-bold leading-tight transition-colors duration-300`} style={{ color: activePreview.textColor, fontFamily: activeFont }}>
+                        {activePreview.title} <span className={`${textSizeOpts.number} opacity-70`} style={{ fontFamily: activeFont }}>/ {activePreview.number}</span>
+                      </h1>
+                    </div>
+                    <div className="w-16 h-1 mb-6 opacity-50 transition-colors duration-300" style={{ backgroundColor: activePreview.textColor }}></div>
+                    <h2 className={`${textSizeOpts.subtitle} font-medium mb-6 tracking-wide transition-colors duration-300`} style={{ color: activePreview.textColor, fontFamily: activeFont }}>
+                      {activePreview.subtitle}
+                    </h2>
+                    <div className="space-y-4">
+                      <p className={`${textSizeOpts.content} leading-relaxed font-light whitespace-pre-line transition-colors duration-300`} style={{ color: activePreview.textColor, fontFamily: activeFont }}>
+                        {activePreview.content}
+                      </p>
+                    </div>
+                  </div>
+
+                  {activePreview.showQr && qrBase64 && (
+                    <div className="mt-8 flex items-center gap-4 pt-6 border-t border-white/20">
+                      <div className="p-2 bg-white rounded-xl shadow-md shrink-0">
+                        <img src={qrBase64} alt="QR Code" className="w-16 h-16 md:w-20 md:h-20 object-contain" />
+                      </div>
+                      <div className="flex flex-col justify-center">
+                        <span className="text-sm md:text-base font-bold tracking-widest uppercase" style={{ color: activePreview.textColor, fontFamily: activeFont }}>Scan Me</span>
+                        <span className="text-xs md:text-sm opacity-70 mt-1" style={{ color: activePreview.textColor, fontFamily: activeFont }}>掃描獲取更多資訊</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="absolute bottom-6 right-6 text-white/80 text-xs tracking-widest uppercase" style={{ writingMode: 'vertical-rl' }}>
+                  anyGem AI
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* 導出預覽 Modal Overlay */}
+          {exportImageUrl && (
+            <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center p-4 backdrop-blur-xl animate-in fade-in duration-300">
+              <div className="relative max-w-full">
+                <img src={exportImageUrl} alt="Export" className="max-h-[75vh] md:max-h-[85vh] rounded-xl shadow-2xl border border-white/20 object-contain" />
+                <div className="absolute -top-3 -right-3 bg-indigo-600 text-white text-[10px] font-black px-3 py-1 rounded-full shadow-lg border border-white/20">
+                  ULTRA HD
+                </div>
+              </div>
+              <p className="mt-6 text-gray-400 text-xs tracking-[0.2em] font-light text-center">
+                📱 手機版請 <strong className="text-white">長按圖片</strong> 儲存圖卡<br/>
+                💻 電腦版請 <strong className="text-white">右鍵另存圖片</strong>
+              </p>
+              <button 
+                onClick={() => setExportImageUrl(null)} 
+                className="mt-6 px-10 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-full border border-white/20 transition-all text-sm tracking-widest"
+              >
+                返回編輯器
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ==========================================
+    // 4. 掛載 React 應用程式
+    // ==========================================
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<GeneratorApp />);
+  </script>
+</body>
 </html>
