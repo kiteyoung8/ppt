@@ -26,6 +26,28 @@
     .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
     .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
+    
+    /* 自訂 range slider 樣式讓它更精緻 */
+    input[type=range] {
+      -webkit-appearance: none;
+      background: transparent;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 14px;
+      width: 14px;
+      border-radius: 50%;
+      background: #4f46e5;
+      cursor: pointer;
+      margin-top: -5px;
+    }
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 4px;
+      cursor: pointer;
+      background: #e5e7eb;
+      border-radius: 2px;
+    }
   </style>
 </head>
 <body>
@@ -34,7 +56,6 @@
 
   <!-- 注意這裡的 type 是 text/babel，這是給 Babel 翻譯用的 -->
   <script type="text/babel">
-    // 從全域 React 物件中解構出我們需要的 Hooks
     const { useReducer, useRef, useCallback, useState, useEffect } = React;
 
     // ==========================================
@@ -67,13 +88,6 @@
       { words: ['山', '森', '草', '木', '生', '自然', '綠', '海'], recs: ['nature', 'minimal', 'shinkai'] },
     ];
 
-    const TEXT_SIZE_OPTIONS = {
-      small: { label: '小 (Small)', title: 'text-3xl', number: 'text-xl', subtitle: 'text-xl', content: 'text-base' },
-      normal: { label: '標準 (Normal)', title: 'text-4xl', number: 'text-2xl', subtitle: 'text-2xl', content: 'text-lg' },
-      large: { label: '大 (Large)', title: 'text-5xl', number: 'text-3xl', subtitle: 'text-3xl', content: 'text-xl' },
-      xlarge: { label: '特大 (Extra Large)', title: 'text-6xl', number: 'text-4xl', subtitle: 'text-4xl', content: 'text-2xl' }
-    };
-
     const FONT_OPTIONS = {
       sans: { label: '標準黑體 (Noto Sans)', value: "'Noto Sans TC', sans-serif" },
       serif: { label: '優雅明體 (Noto Serif)', value: "'Noto Serif TC', serif" },
@@ -87,14 +101,25 @@
     // ==========================================
     const initialState = {
       draft: {
+        // 主標題
         title: "心之勇士",
+        titleSize: 42,
+        titleColor: "#ffffff",
+        // 編號
         number: "227",
+        numberSize: 24,
+        numberColor: "#e5e7eb",
+        // 副標題
         subtitle: "展現給孩子的風景",
+        subtitleSize: 24,
+        subtitleColor: "#ffffff",
+        // 內文
         content: "注視孩子們的眼睛 —— \n那是充滿純真和好奇的心靈之窗。\n當那窗口打開向著我們的時候，\n我們是否應該負責向那窗口展現什麼？",
+        contentSize: 18,
+        contentColor: "#ffffff",
+
         layout: "1:1",
         theme: "shinkai",
-        textSize: "normal",
-        textColor: "#ffffff",
         fontFamily: "sans",
         qrUrl: "https://google.com",
         showQr: false,
@@ -127,7 +152,7 @@
       const cardRef = useRef(null);
       const uploadedImageRef = useRef(""); 
       
-      const [isSidebarOpen, setIsSidebarOpen] = useState(true); // 新增：側邊欄開關狀態
+      const [isSidebarOpen, setIsSidebarOpen] = useState(true); 
       const [isExporting, setIsExporting] = useState(false);
       const [exportImageUrl, setExportImageUrl] = useState(null);
       const [qrBase64, setQrBase64] = useState(""); 
@@ -236,7 +261,6 @@
         return `${vMap[activePreview.boxValign]} ${hMap[activePreview.boxAlign]}`;
       };
 
-      const textSizeOpts = TEXT_SIZE_OPTIONS[activePreview.textSize || 'normal'];
       const activeFont = FONT_OPTIONS[activePreview.fontFamily || 'sans'].value;
 
       return (
@@ -245,7 +269,7 @@
           {/* ================= 左側：編輯器面板 Wrapper ================= */}
           <div className={`relative shrink-0 transition-all duration-500 ease-in-out z-20 bg-white ${isSidebarOpen ? 'w-full md:w-[400px] h-screen border-r shadow-sm' : 'w-full h-14 md:w-0 md:h-screen border-r-0'}`}>
             
-            {/* 真正的 Sidebar 內容容器 (設定固定寬度避免擠壓，透過外部 overflow 隱藏) */}
+            {/* 真正的 Sidebar 內容容器 */}
             <div className={`absolute inset-0 overflow-hidden transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
               <div className="w-[100vw] md:w-[400px] h-full flex flex-col">
                 <div className="p-6 border-b bg-white z-10 shrink-0">
@@ -320,41 +344,94 @@
                       <div className="flex-1 space-y-4 pt-2">
                         <div>
                           <div className="flex justify-between text-xs text-gray-500 mb-1"><span>X軸位移</span><span>{draft.offsetX}px</span></div>
-                          <input type="range" name="offsetX" min="-400" max="400" value={draft.offsetX} onChange={handleChange} className="w-full accent-indigo-600 h-1" />
+                          <input type="range" name="offsetX" min="-400" max="400" value={draft.offsetX} onChange={handleChange} className="w-full" />
                         </div>
                         <div>
                           <div className="flex justify-between text-xs text-gray-500 mb-1"><span>Y軸位移</span><span>{draft.offsetY}px</span></div>
-                          <input type="range" name="offsetY" min="-400" max="400" value={draft.offsetY} onChange={handleChange} className="w-full accent-indigo-600 h-1" />
+                          <input type="range" name="offsetY" min="-400" max="400" value={draft.offsetY} onChange={handleChange} className="w-full" />
                         </div>
                         <div>
                           <div className="flex justify-between text-xs text-gray-500 mb-1"><span>區塊寬度</span><span>{draft.boxWidth}%</span></div>
-                          <input type="range" name="boxWidth" min="20" max="100" value={draft.boxWidth} onChange={handleChange} className="w-full accent-indigo-600 h-1" />
+                          <input type="range" name="boxWidth" min="20" max="100" value={draft.boxWidth} onChange={handleChange} className="w-full" />
                         </div>
                       </div>
                     </div>
                   </section>
 
-                  {/* 區塊 3：文字設定 */}
+                  {/* 區塊 3：文字設定 (完全獨立客製化) */}
                   <section className="space-y-4">
                     <h3 className="text-xs font-bold text-indigo-600 uppercase tracking-widest border-b pb-2">3. 文字與內容</h3>
-                    <div className="flex gap-2">
-                      <select name="textSize" value={draft.textSize} onChange={handleChange} className="flex-1 p-2 text-sm border rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500">
-                        {Object.entries(TEXT_SIZE_OPTIONS).map(([key, opt]) => <option key={key} value={key}>{opt.label}</option>)}
-                      </select>
+                    
+                    <div className="flex items-center gap-3 mb-4">
+                      <label className="text-sm font-bold text-gray-700 shrink-0">全域字體風格</label>
                       <select name="fontFamily" value={draft.fontFamily} onChange={handleChange} className="flex-1 p-2 text-sm border rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500">
                         {Object.entries(FONT_OPTIONS).map(([key, opt]) => <option key={key} value={key}>{opt.label}</option>)}
                       </select>
-                      <div className="w-10 h-[38px] shrink-0 rounded-lg border bg-white p-1">
-                        <input type="color" name="textColor" value={draft.textColor} onChange={handleChange} className="h-full w-full cursor-pointer bg-transparent" />
-                      </div>
                     </div>
 
-                    <input type="text" name="title" value={draft.title} onChange={handleChange} placeholder="主標題" className="w-full p-2 border rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500" />
-                    <div className="flex gap-2">
-                      <input type="text" name="number" value={draft.number} onChange={handleChange} placeholder="編號" className="w-1/3 p-2 border rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500" />
-                      <input type="text" name="subtitle" value={draft.subtitle} onChange={handleChange} placeholder="副標題" className="w-2/3 p-2 border rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500" />
+                    {/* 主標題區塊 */}
+                    <div className="p-3 bg-white border rounded-xl space-y-3 shadow-sm">
+                      <div className="flex justify-between items-center">
+                        <label className="text-sm font-bold text-gray-700">主標題</label>
+                        <div className="flex items-center gap-3">
+                          <input type="color" name="titleColor" value={draft.titleColor} onChange={handleChange} className="w-6 h-6 rounded cursor-pointer border border-gray-200 p-0" title="文字顏色" />
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-gray-400">Aa</span>
+                            <input type="range" name="titleSize" min="16" max="120" value={draft.titleSize} onChange={handleChange} className="w-20" />
+                            <span className="text-xs text-gray-500 w-6 text-right">{draft.titleSize}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <input type="text" name="title" value={draft.title} onChange={handleChange} placeholder="輸入主標題..." className="w-full p-2 border rounded-lg bg-gray-50 outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
                     </div>
-                    <textarea name="content" rows="4" value={draft.content} onChange={handleChange} placeholder="輸入內文..." className="w-full p-2 border rounded-lg bg-white resize-none outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+
+                    {/* 編號區塊 */}
+                    <div className="p-3 bg-white border rounded-xl space-y-3 shadow-sm">
+                      <div className="flex justify-between items-center">
+                        <label className="text-sm font-bold text-gray-700">編號 (附屬標題)</label>
+                        <div className="flex items-center gap-3">
+                          <input type="color" name="numberColor" value={draft.numberColor} onChange={handleChange} className="w-6 h-6 rounded cursor-pointer border border-gray-200 p-0" title="文字顏色" />
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-gray-400">Aa</span>
+                            <input type="range" name="numberSize" min="12" max="60" value={draft.numberSize} onChange={handleChange} className="w-20" />
+                            <span className="text-xs text-gray-500 w-6 text-right">{draft.numberSize}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <input type="text" name="number" value={draft.number} onChange={handleChange} placeholder="輸入編號..." className="w-full p-2 border rounded-lg bg-gray-50 outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                    </div>
+
+                    {/* 副標題區塊 */}
+                    <div className="p-3 bg-white border rounded-xl space-y-3 shadow-sm">
+                      <div className="flex justify-between items-center">
+                        <label className="text-sm font-bold text-gray-700">副標題</label>
+                        <div className="flex items-center gap-3">
+                          <input type="color" name="subtitleColor" value={draft.subtitleColor} onChange={handleChange} className="w-6 h-6 rounded cursor-pointer border border-gray-200 p-0" title="文字顏色" />
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-gray-400">Aa</span>
+                            <input type="range" name="subtitleSize" min="12" max="80" value={draft.subtitleSize} onChange={handleChange} className="w-20" />
+                            <span className="text-xs text-gray-500 w-6 text-right">{draft.subtitleSize}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <input type="text" name="subtitle" value={draft.subtitle} onChange={handleChange} placeholder="輸入副標題..." className="w-full p-2 border rounded-lg bg-gray-50 outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                    </div>
+
+                    {/* 內文區塊 */}
+                    <div className="p-3 bg-white border rounded-xl space-y-3 shadow-sm">
+                      <div className="flex justify-between items-center">
+                        <label className="text-sm font-bold text-gray-700">內文段落</label>
+                        <div className="flex items-center gap-3">
+                          <input type="color" name="contentColor" value={draft.contentColor} onChange={handleChange} className="w-6 h-6 rounded cursor-pointer border border-gray-200 p-0" title="文字顏色" />
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-gray-400">Aa</span>
+                            <input type="range" name="contentSize" min="10" max="60" value={draft.contentSize} onChange={handleChange} className="w-20" />
+                            <span className="text-xs text-gray-500 w-6 text-right">{draft.contentSize}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <textarea name="content" rows="4" value={draft.content} onChange={handleChange} placeholder="輸入內文 (支援換行)..." className="w-full p-2 border rounded-lg bg-gray-50 resize-none outline-none focus:ring-2 focus:ring-indigo-500 text-sm"></textarea>
+                    </div>
                   </section>
 
                   {/* 區塊 4：附加功能 */}
@@ -425,36 +502,39 @@
                 >
                   <div>
                     <div className="mb-6">
-                      <h1 className={`${textSizeOpts.title} font-bold leading-tight transition-colors duration-300`} style={{ color: activePreview.textColor, fontFamily: activeFont }}>
-                        {activePreview.title} <span className={`${textSizeOpts.number} opacity-70`} style={{ fontFamily: activeFont }}>/ {activePreview.number}</span>
+                      {/* 主標題與編號套用獨立樣式 */}
+                      <h1 className="font-bold leading-tight transition-all duration-300" style={{ color: activePreview.titleColor, fontSize: `${activePreview.titleSize}px`, fontFamily: activeFont }}>
+                        {activePreview.title} <span className="opacity-70 transition-all duration-300" style={{ color: activePreview.numberColor, fontSize: `${activePreview.numberSize}px`, fontFamily: activeFont }}>/ {activePreview.number}</span>
                       </h1>
                     </div>
-                    <div className="w-16 h-1 mb-6 opacity-50 transition-colors duration-300" style={{ backgroundColor: activePreview.textColor }}></div>
-                    <h2 className={`${textSizeOpts.subtitle} font-medium mb-6 tracking-wide transition-colors duration-300`} style={{ color: activePreview.textColor, fontFamily: activeFont }}>
+                    {/* 分隔線顏色跟隨主標題 */}
+                    <div className="w-16 h-1 mb-6 opacity-50 transition-colors duration-300" style={{ backgroundColor: activePreview.titleColor }}></div>
+                    
+                    {/* 副標題套用獨立樣式 */}
+                    <h2 className="font-medium mb-6 tracking-wide transition-all duration-300" style={{ color: activePreview.subtitleColor, fontSize: `${activePreview.subtitleSize}px`, fontFamily: activeFont }}>
                       {activePreview.subtitle}
                     </h2>
+                    
+                    {/* 內文套用獨立樣式 */}
                     <div className="space-y-4">
-                      <p className={`${textSizeOpts.content} leading-relaxed font-light whitespace-pre-line transition-colors duration-300`} style={{ color: activePreview.textColor, fontFamily: activeFont }}>
+                      <p className="leading-relaxed font-light whitespace-pre-line transition-all duration-300" style={{ color: activePreview.contentColor, fontSize: `${activePreview.contentSize}px`, fontFamily: activeFont }}>
                         {activePreview.content}
                       </p>
                     </div>
                   </div>
 
+                  {/* QR Code */}
                   {activePreview.showQr && qrBase64 && (
                     <div className="mt-8 flex items-center gap-4 pt-6 border-t border-white/20">
                       <div className="p-2 bg-white rounded-xl shadow-md shrink-0">
                         <img src={qrBase64} alt="QR Code" className="w-16 h-16 md:w-20 md:h-20 object-contain" />
                       </div>
                       <div className="flex flex-col justify-center">
-                        <span className="text-sm md:text-base font-bold tracking-widest uppercase" style={{ color: activePreview.textColor, fontFamily: activeFont }}>Scan Me</span>
-                        <span className="text-xs md:text-sm opacity-70 mt-1" style={{ color: activePreview.textColor, fontFamily: activeFont }}>掃描獲取更多資訊</span>
+                        <span className="text-sm md:text-base font-bold tracking-widest uppercase transition-colors duration-300" style={{ color: activePreview.contentColor, fontFamily: activeFont }}>Scan Me</span>
+                        <span className="text-xs md:text-sm opacity-70 mt-1 transition-colors duration-300" style={{ color: activePreview.contentColor, fontFamily: activeFont }}>掃描獲取更多資訊</span>
                       </div>
                     </div>
                   )}
-                </div>
-                
-                <div className="absolute bottom-6 right-6 text-white/80 text-xs tracking-widest uppercase" style={{ writingMode: 'vertical-rl' }}>
-                  anyGem AI
                 </div>
               </div>
 
